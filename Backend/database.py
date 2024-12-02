@@ -1,5 +1,5 @@
-import aiosqlite
-from aiosqlite import Error
+import sqlite3
+from sqlite3 import Error
 import threading
 import os
 from alpaca.trading.client import Position
@@ -8,59 +8,68 @@ from alpaca.trading.client import Position
 class DatabaseManager:
     def __init__(self, db_file='stock_tracker.db'):
         self.db_file = db_file
+        self.local = threading.local()
+        self.connect_to_db()
 
-    async def connect(self):
-        self.conn = await aiosqlite.connect(self.db_file)
+    def connect_to_db(self):
+        self.local.conn = sqlite3.connect(self.db_file, check_same_thread=False)
+        self.create_tables()
 
-    async def create_tables(self):
-        await self.connect()
+    @property
+    def conn(self):
+        if not hasattr(self.local, 'conn'):
+            self.connect_to_db()
+        return self.local.conn
+
+
+    def create_tables(self):
         try:
-            async with self.conn.cursor() as cursor:
-                await cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS trades (
-                        id TEXT PRIMARY KEY,
-                        symbol TEXT NOT NULL,
-                        quantity FLOAT NOT NULL,
-                        side TEXT NOT NULL,
-                        status TEXT NOT NULL,
-                        strategy_id TEXT,
-                        opened_at DATETIME NOT NULL,
-                        avg_price FLOAT)
-                         """)
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS trades (
+                    id TEXT PRIMARY KEY,
+                    symbol TEXT NOT NULL,
+                    quantity FLOAT NOT NULL,
+                    side TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    strategy_id TEXT,
+                    opened_at DATETIME NOT NULL,
+                    avg_price FLOAT)
+                     """)
 
-                await cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS active_positions(
-                        symbol TEXT PRIMARY KEY,
-                        quantity FLOAT NOT NULL,
-                        avg_price FLOAT NOT NULL,
-                        market_value FLOAT NOT NULL,
-                        p_l FLOAT NOT NULL,
-                        current_price FLOAT NOT NULL,
-                        strategy_id TEXT,
-                        side TEXT NOT NULL)
+            cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS active_positions(
+                    symbol TEXT PRIMARY KEY,
+                    quantity FLOAT NOT NULL,
+                    avg_price FLOAT NOT NULL,
+                    market_value FLOAT NOT NULL,
+                    p_l FLOAT NOT NULL,
+                    current_price FLOAT NOT NULL,
+                    strategy_id TEXT,
+                    side TEXT NOT NULL)
+                    """)
+
+            cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS strategies (
+                            strategy_id TEXT PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            description TEXT,
+                            parameters TEXT)
                         """)
+        ###PARAMETERS will be a JSON object containing the parameters for the strategy.
+        # Create performance table
+            cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS performance (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    strategy_id TEXT,
+                    date DATE NOT NULL,
+                    net_profit FLOAT,
+                    total_trades INTEGER,
+                    open_positions INTEGER,
+                    FOREIGN KEY(strategy_id) REFERENCES strategies(strategy_id))
+                    """)
 
-                await cursor.execute("""
-                            CREATE TABLE IF NOT EXISTS strategies (
-                                strategy_id TEXT PRIMARY KEY,
-                                name TEXT NOT NULL,
-                                description TEXT,
-                                parameters TEXT)
-                            """)
-            ###PARAMETERS will be a JSON object containing the parameters for the strategy.
-            # Create performance table
-                await cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS performance (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        strategy_id TEXT,
-                        date DATE NOT NULL,
-                        net_profit FLOAT,
-                        total_trades INTEGER,
-                        open_positions INTEGER,
-                        FOREIGN KEY(strategy_id) REFERENCES strategies(strategy_id))
-                        """)
-
-                await self.conn.commit()
+            self.conn.commit()
             print("Tables created successfully.")
         except Error as e:
             print(f"Error creating tables: {e}")
