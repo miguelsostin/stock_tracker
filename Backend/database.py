@@ -269,4 +269,17 @@ class DatabaseManager:
         except Error as e:
             print(f"Error deleting all orders: {e}")
 
+    def get_all_strategies(self):
+        """
+        Retrieve all strategies from the database.
+        """
+        # Implement database query to fetch strategies
+        # For example:
+        with self.local.conn:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT * FROM strategies")
+            strategies = cursor.fetchall()
+            # Convert to a list of Strategy objects or dictionaries
+            return strategies
+
 

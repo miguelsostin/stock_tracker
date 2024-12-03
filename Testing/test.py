@@ -18,22 +18,22 @@ def main():
     load_dotenv()
     data_key = os.getenv('PAPER_KEY')  # Use your data API key
     data_secret_key = os.getenv('PAPER_SECRET_KEY')
-    base_url = "wss://stream.data.alpaca.markets/v2/test"
+    base_url = "wss://stream.data.alpaca.markets/v2/iex"
 
     stock_ws = StockDataWebSocketClient(data_key, data_secret_key, base_url)
 
     # Subscribe to trades and quotes for AAPL
     channels = {
-        "trades": ["FAKEPACA"],
-        "quotes": ["FAKEPACA"],
-        "bars": ["FAKEPACA"]  # Optional
+        "trades": ["AAPL"],
+        "quotes": ["AAPL"],
+        "bars": ["AAPL"]  # Optional
     }
     stock_ws.subscribe(channels)
 
     # Register callbacks
     stock_ws.register_callback('t', trade_handler)  # 't' for trade messages
     stock_ws.register_callback('q', quote_handler)  # 'q' for quote messages
-    stock_ws.register_callback('q', bar_handler)  # 'q' for quote messages
+    stock_ws.register_callback('b', bar_handler)  # 'q' for quote messages
 
     stock_ws.connect()
 

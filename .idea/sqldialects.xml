@@ -2,7 +2,7 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/Backend/database.py" dialect="SQLite" />
-    <file url="file://$PROJECT_DIR$/DataBaseEditor.py" dialect="SQLite" />
+    <file url="file://$PROJECT_DIR$/Testing/DataBaseEditor.py" dialect="SQLite" />
     <file url="file://$PROJECT_DIR$/main.py" dialect="SQLite" />
   </component>
 </project>
