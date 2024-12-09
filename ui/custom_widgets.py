@@ -5,9 +5,13 @@
 
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
+from kivy.uix.button import Button
 from kivy.graphics import Color, RoundedRectangle
 from kivy.utils import get_color_from_hex
 from utils import hex_to_rgb  # Importing the standalone function
+from kivy.properties import NumericProperty, ObjectProperty
+import json
+import yfinance as yf
 
 class PositionItem(BoxLayout):
     def __init__(self, position, **kwargs):
@@ -16,7 +20,7 @@ class PositionItem(BoxLayout):
         self.padding = 10
         self.spacing = 10
         self.size_hint_y = None
-        self.height = 50
+        self.height = 80
 
         # Set background with rounded corners
         with self.canvas.before:
@@ -63,7 +67,7 @@ class PositionItem(BoxLayout):
         change_label.bind(size=change_label.setter('text_size'))
 
         # Combine price and change in a horizontal BoxLayout
-        price_change_layout = BoxLayout(orientation='horizontal', size_hint=(None, 1), width=150, spacing=5)
+        price_change_layout = BoxLayout(orientation='horizontal', size_hint=(1, 1), width=150, spacing=5)
         price_change_layout.add_widget(price_label)
         price_change_layout.add_widget(change_label)
 
@@ -129,7 +133,7 @@ class StrategyItem(BoxLayout):
     strategy_name = StringProperty('')
     description = StringProperty('')
 
-    def __init__(self, strategy, **kwargs):
+    def __init__(self, strategy, on_run_callback=None, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'horizontal'
         self.padding = 10
@@ -137,13 +141,26 @@ class StrategyItem(BoxLayout):
         self.size_hint_y = None
         self.height = 60
 
-        # Set background with rounded corners
         with self.canvas.before:
-            Color(*hex_to_rgb('#ffffff'))  # White background
+            Color(*hex_to_rgb('#ffffff'))
             self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[10])
         self.bind(pos=self.update_bg, size=self.update_bg)
 
-        # Strategy Name
+        self.on_run_callback = on_run_callback
+
+        parameters_json = strategy['parameters']
+        try:
+            loaded_params = json.loads(parameters_json)
+        except json.JSONDecodeError:
+            loaded_params = {}
+
+        interval = loaded_params.get('interval')
+        strategy_class_name = loaded_params.get('strategy_class_name')
+
+        if not interval or not strategy_class_name:
+            interval = interval if interval else 'N/A'
+            strategy_class_name = strategy_class_name if strategy_class_name else 'UnknownStrategy'
+
         name_label = Label(
             text=strategy['name'],
             font_size='18sp',
@@ -155,21 +172,97 @@ class StrategyItem(BoxLayout):
         name_label.bind(size=name_label.setter('text_size'))
         name_label.size_hint_x = 0.4
 
-        # Description
-        desc_label = Label(
-            text=strategy.get('description', 'No description provided.'),
-            font_size='16sp',
-            color=get_color_from_hex('#7f8c8d'),
-            halign='left',
-            valign='middle'
+        run_button = Button(
+            text='Run',
+            size_hint=(0.2, 1),
+            background_normal='',
+            background_color=get_color_from_hex('#27ae60'),
+            color=get_color_from_hex('#ffffff'),
+            bold=True,
+            font_size='16sp'
         )
-        desc_label.bind(size=desc_label.setter('text_size'))
-        desc_label.size_hint_x = 0.6
+        run_button.bind(on_release=lambda instance: self.run_strategy(strategy, loaded_params))
 
         self.add_widget(name_label)
-        self.add_widget(desc_label)
+        self.add_widget(run_button)
 
     def update_bg(self, instance, value):
-        """Updates the background's position and size."""
         self.bg.pos = instance.pos
         self.bg.size = instance.size
+
+    def run_strategy(self, strategy, loaded_params):
+        if self.on_run_callback:
+            self.on_run_callback(strategy, loaded_params)
+
+class ETFAnalyticsWidget(BoxLayout):
+    """
+    A widget representing a single ETF's analytics displayed in a small square.
+    """
+    etf_name = StringProperty("SPY")
+    current_price = NumericProperty(0.0)
+    daily_percent_change = NumericProperty(0.0)
+    daily_net_change = NumericProperty(0.0)
+
+    def __init__(self, etf_name, **kwargs):
+        super().__init__(**kwargs)
+        self.etf_name = etf_name
+        self.orientation = "vertical"
+        self.padding = 10
+        self.size_hint = (None, None)
+        self.size = (305, 150)
+
+        # Background styling
+        with self.canvas.before:
+            Color(*get_color_from_hex("#34495e"))  # Dark blue background
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[10])
+        self.bind(pos=self.update_bg_rect, size=self.update_bg_rect)
+
+        # Labels
+        self.name_label = Label(
+            text=self.etf_name,
+            font_size="16sp",
+            bold=True,
+            color=get_color_from_hex("#ecf0f1"),  # Light text
+            size_hint=(1, 0.3),
+        )
+        self.price_label = Label(
+            text=f"${self.current_price:.2f}",
+            font_size="20sp",
+            bold=True,
+            color=get_color_from_hex("#2ecc71"),  # Green text for price
+            size_hint=(1, 0.4),
+        )
+        self.change_label = Label(
+            text=f"{self.daily_percent_change:.2f}% ({self.daily_net_change:+.2f})",
+            font_size="14sp",
+            color=get_color_from_hex("#e74c3c") if self.daily_percent_change < 0 else get_color_from_hex("#2ecc71"),
+            size_hint=(1, 0.3),
+        )
+
+        # Add labels to the layout
+        self.add_widget(self.name_label)
+        self.add_widget(self.price_label)
+        self.add_widget(self.change_label)
+
+    def update_bg_rect(self, instance, value):
+        """Update the background rectangle position and size."""
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+
+    def update_analytics(self, quote, change, percent_change):
+        """Fetch and update the ETF's analytics."""
+
+        try:
+            self.current_price = float(quote)
+            self.daily_net_change = float(change)
+            self.daily_percent_change = float(percent_change)
+
+            # Update the text on labels
+            self.price_label.text = f"${self.current_price:.2f}"
+            self.change_label.text = f"{self.daily_percent_change:.2f}% ({self.daily_net_change:+.2f})"
+            self.change_label.color = get_color_from_hex("#e74c3c") if self.daily_percent_change < 0 else get_color_from_hex("#2ecc71")
+        except Exception as e:
+            self.price_label.text = "Error"
+            self.change_label.text = "Error"
+            print(f"Error fetching data for {self.etf_name}: {e}")
+

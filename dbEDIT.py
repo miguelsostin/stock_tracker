@@ -1,4 +1,5 @@
 from Backend.database import DatabaseManager
+import sqlite3
 import os
 
 
@@ -18,8 +19,11 @@ def delete_all_test_orders(db_manager):
     db_manager.conn.commit()
 
 def main():
-    db_manager = DatabaseManager()
-    delete_test_order(db_manager,"7ffa4942-57e0-4d3f-9db3-a036b86ad26d")
+    conn = sqlite3.connect('stock_tracker.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute("""SELECT * FROM strategies""")
+    row = cursor.fetchone()
+    print(row)
 
 if __name__ == '__main__':
     main()

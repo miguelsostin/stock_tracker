@@ -278,8 +278,17 @@ class DatabaseManager:
         with self.local.conn:
             cursor = self.conn.cursor()
             cursor.execute("SELECT * FROM strategies")
-            strategies = cursor.fetchall()
+            rows = cursor.fetchall()
             # Convert to a list of Strategy objects or dictionaries
+            strategies = []
+            for row in rows:
+                strategy_dict = {
+                    'strategy_id': row[0],
+                    'name': row[1],
+                    'description': row[2],
+                    'parameters': row[3]
+                }
+                strategies.append(strategy_dict)
             return strategies
 
 

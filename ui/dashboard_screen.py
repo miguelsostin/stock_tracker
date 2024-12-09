@@ -11,6 +11,7 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.core.text import LabelBase
+from ui.custom_widgets import ETFAnalyticsWidget
 
 # Optional: Register a custom font if desired
 # LabelBase.register(name="Roboto", fn_regular="Roboto-Regular.ttf")
@@ -37,7 +38,7 @@ class DashboardScreen(Screen):
         main_layout.bind(pos=self.update_main_rect, size=self.update_main_rect)
 
         # Header
-        header = BoxLayout(size_hint=(1, 0.15), padding=(0, 10), spacing=10)
+        header = BoxLayout(size_hint=(1, 0.05), padding=(0, 10), spacing=10)
         header_label = Label(
             text="📈 Portfolio Dashboard",  # Remove emoji if undesired
             font_size='32sp',
@@ -48,32 +49,47 @@ class DashboardScreen(Screen):
         header.add_widget(header_label)
         main_layout.add_widget(header)
 
+
+
         # Metrics Grid
-        metrics_grid = GridLayout(cols=2, size_hint=(1, 0.2), spacing=20)
-
-        # Net Portfolio Balance
-        self.balance_label = self.create_metric_label("Net Portfolio", "$0.00", '#2c3e50')
-        metrics_grid.add_widget(self.balance_label)
-
-        # Daily Change
         self.change_label = Label(
             text="Daily Change: $0.00 (0.00%)",
             font_size='20sp',
             color=get_color_from_hex('#2ecc71'),  # Default to green
-            halign="left",
+            halign="center",
             valign="middle"
         )
         self.change_label.bind(size=self.change_label.setter('text_size'))
-        metrics_grid.add_widget(self.change_label)
 
+        metrics_grid = BoxLayout(orientation='vertical', padding=10, spacing=20, size_hint=(1, 0.2))
+
+        # Net Portfolio Balance
+
+        self.balance_label = self.create_metric_label("Portfolio Balance", "$0.00", '#2c3e50')
+        metrics_grid.add_widget(self.balance_label)
+
+        #SPY, QQQ
+        etf_analytics_layout = GridLayout(cols=5, size_hint=(1, 0.1), spacing=10)
+        self.etf_widgets = [
+            ETFAnalyticsWidget(etf_name="SPY"),
+            ETFAnalyticsWidget(etf_name="QQQ"),
+            ETFAnalyticsWidget(etf_name="DIA"),
+            ETFAnalyticsWidget(etf_name="IWM"),
+            ETFAnalyticsWidget(etf_name="VTI"),
+        ]
+        for widget in self.etf_widgets:
+            etf_analytics_layout.add_widget(widget)
+
+        main_layout.add_widget(etf_analytics_layout)
+
+
+
+
+        # metrics_grid.add_widget(self.change_label)
         main_layout.add_widget(metrics_grid)
 
-        # Spacer
-        spacer = BoxLayout(size_hint=(1, 0.05))
-        main_layout.add_widget(spacer)
-
         # Navigation Buttons
-        buttons_layout = GridLayout(cols=2, size_hint=(1, 0.15), spacing=20)
+        buttons_layout = GridLayout(cols=4, size_hint=(1, 0.15), spacing=20)
 
         active_positions_button = self.create_nav_button(
             text="Active Positions",
@@ -85,9 +101,22 @@ class DashboardScreen(Screen):
             background_color='#27ae60',  # Pass hex string directly
             on_release=self.go_to_strategies
         )
+        Live_Strategies_button = self.create_nav_button(
+            text="Live Strategies",
+            background_color='#27ae60',  # Pass hex string directly
+            on_release=self.go_to_live_strategies
+        )
+
+        Search_Stocks_button = self.create_nav_button(
+            text="Search Stocks",
+            background_color='#2980b9',  # Pass hex string directly
+            on_release=self.go_to_search_stocks
+        )
 
         buttons_layout.add_widget(active_positions_button)
         buttons_layout.add_widget(strategies_button)
+        buttons_layout.add_widget(Live_Strategies_button)
+        buttons_layout.add_widget(Search_Stocks_button)
 
         main_layout.add_widget(buttons_layout)
 
@@ -110,7 +139,7 @@ class DashboardScreen(Screen):
 
     def create_metric_label(self, title, value, bg_color):
         """Helper method to create a metric display with a colored background."""
-        layout = BoxLayout(orientation='vertical', padding=10, spacing=5, size_hint=(1, 1))
+        layout = BoxLayout(orientation='vertical', padding=5, spacing=5, size_hint=(1, 1))
 
         with layout.canvas.before:
             Color(*self.hex_to_rgb(bg_color))
@@ -141,6 +170,7 @@ class DashboardScreen(Screen):
 
         layout.add_widget(title_label)
         layout.add_widget(value_label)
+        layout.add_widget(self.change_label)
 
         return layout
 
@@ -209,12 +239,13 @@ class DashboardScreen(Screen):
             change, percent_change = self.api_manager.get_day_portfolio_change()
 
             # Update metric labels
-            self.balance_label.children[0].text = f"${self.net_portfolio_balance:,.2f}"
+            self.balance_label.children[1].text = f"${self.net_portfolio_balance:,.2f}"
 
             # Update daily change label with color
             self.daily_net_change = change
             self.daily_percent_change = percent_change
             self.update_change_label()
+            self.update_etf_analytics(None)
 
         except Exception as e:
             print(f"Error updating dashboard values: {e}")
@@ -241,3 +272,17 @@ class DashboardScreen(Screen):
     def go_to_strategies(self, instance):
         """Navigate to the Strategies screen."""
         self.manager.current = 'strategies'
+    def go_to_search_stocks(self, instance):
+        """Navigate to the Stock Data screen."""
+        self.manager.current = 'stock_data'
+
+    def update_etf_analytics(self, dt):
+        """Update all ETF analytics."""
+
+        for widget in self.etf_widgets:
+            dat1,dat2,dat3 = self.api_manager.get_quote_and_change(widget.etf_name)
+            widget.update_analytics(dat1,dat2,dat3)
+    def go_to_live_strategies(self, instance):
+        """Navigate to the Live Trading screen."""
+        self.manager.current = 'live_trading'
+

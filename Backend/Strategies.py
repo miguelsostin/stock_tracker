@@ -275,5 +275,144 @@ class BollingerBandsStrategy(bt.Strategy):
         dt = dt or self.datas[0].datetime.date(0)
         print(f'{dt.isoformat()}, {txt}')
 
+class MACDStrategy(bt.Strategy):
+    params = (
+        ('fast_period', 12),
+        ('slow_period', 26),
+        ('signal_period', 9),
+    )
+
+    def __init__(self):
+        self.num_trades = 0
+        self.macd = bt.indicators.MACD(self.datas[0].close, period_me1 = self.params.fast_period, period_me2 = self.params.slow_period, period_signal = self.params.signal_period)
+        self.order = None
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datetime.date(0)
+        print(f'{dt.isoformat()}, {txt}')
+
+    def notify_order(self, order):
+        if order.status in [order.Completed]:
+            if order.isbuy():
+                self.log(f'BUY EXECUTED, Price: {order.executed.price:.2f}')
+            else:
+                self.log(f'SELL EXECUTED, Price: {order.executed.price:.2f}')
+                self.num_trades += 1
+                self.log(f'Number of trades: {self.num_trades}')
+            self.bar_executed = len(self)
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log('Order Canceled/Margin/Rejected')
+        self.order = None
+
+    def next(self):
+        if self.order:
+            return
+
+        # Simple logic: if MACD line > Signal line => buy, else sell
+        if not self.position:
+            if self.macd.macd[0] > self.macd.signal[0]:
+                self.log(f'BUY CREATE, Price: {self.datas[0].close[0]:.2f}')
+                self.order = self.buy()
+        else:
+            if self.macd.macd[0] < self.macd.signal[0]:
+                self.log(f'SELL CREATE, Price: {self.datas[0].close[0]:.2f}')
+                self.order = self.sell()
+
+class MeanReversionStrategy(bt.Strategy):
+    params = (
+        ('lookback_period', 20),
+        ('threshold', 2.0),
+    )
+
+    def __init__(self):
+        self.num_trades = 0
+        self.order = None
+        self.mavg = bt.indicators.SimpleMovingAverage(self.datas[0].close, period=self.params.lookback_period)
+        self.stddev = bt.indicators.StandardDeviation(self.datas[0].close, period=self.params.lookback_period)
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datetime.date(0)
+        print(f'{dt.isoformat()}, {txt}')
+
+    def notify_order(self, order):
+        if order.status in [order.Completed]:
+            if order.isbuy():
+                self.log(f'BUY EXECUTED, Price: {order.executed.price:.2f}')
+            else:
+                self.log(f'SELL EXECUTED, Price: {order.executed.price:.2f}')
+                self.num_trades += 1
+                self.log(f'Number of trades: {self.num_trades}')
+            self.bar_executed = len(self)
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log('Order Canceled/Margin/Rejected')
+        self.order = None
+
+    def next(self):
+        if self.order:
+            return
+
+        price = self.datas[0].close[0]
+        upper = self.mavg[0] + self.params.threshold * self.stddev[0]
+        lower = self.mavg[0] - self.params.threshold * self.stddev[0]
+
+        if not self.position:
+            if price < lower:
+                self.log(f'BUY CREATE, Price: {price:.2f}')
+                self.order = self.buy()
+        else:
+            if price > upper:
+                self.log(f'SELL CREATE, Price: {price:.2f}')
+                self.order = self.sell()
+
+class BreakoutStrategy(bt.Strategy):
+    params = (
+        ('lookback_period', 50),
+        ('breakout_factor', 1.5),
+    )
+
+    def __init__(self):
+        self.num_trades = 0
+        self.order = None
+        self.highest = bt.indicators.Highest(self.datas[0].high, period=self.params.lookback_period)
+        self.lowest = bt.indicators.Lowest(self.datas[0].low, period=self.params.lookback_period)
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datetime.date(0)
+        print(f'{dt.isoformat()}, {txt}')
+
+    def notify_order(self, order):
+        if order.status in [order.Completed]:
+            if order.isbuy():
+                self.log(f'BUY EXECUTED, Price: {order.executed.price:.2f}')
+            else:
+                self.log(f'SELL EXECUTED, Price: {order.executed.price:.2f}')
+                self.num_trades += 1
+                self.log(f'Number of trades: {self.num_trades}')
+            self.bar_executed = len(self)
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log('Order Canceled/Margin/Rejected')
+        self.order = None
+
+    def next(self):
+        if self.order:
+            return
+
+        price = self.datas[0].close[0]
+        hh = self.highest[-1]
+        ll = self.lowest[-1]
+
+        self.log(
+            f"Price: {price:.2f}, HH: {hh:.2f}, LL: {ll:.2f}, Conditions: Buy if price > {hh * self.params.breakout_factor}, Sell if price < {ll / self.params.breakout_factor}, {'BUY' if price > hh * self.params.breakout_factor else ''}")
+
+        if not self.position:
+            if price > hh * self.params.breakout_factor:
+                self.log(f'BUY CREATE, Price: {price:.2f}')
+                self.order = self.buy()
+        else:
+            if price < ll / self.params.breakout_factor:
+                self.log(f'SELL CREATE, Price: {price:.2f}')
+                self.order = self.sell()
+
+
 
 

@@ -1,6 +1,8 @@
 # ui/strategies_screen.py
-
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.screenmanager import Screen
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.gridlayout import GridLayout
 from kivy.properties import ObjectProperty, StringProperty, DictProperty
 from kivy.uix.spinner import Spinner
 from kivy.uix.textinput import TextInput
@@ -38,7 +40,6 @@ class StrategiesScreen(Screen):
     def build_ui(self):
         # Main Layout
         self.main_layout = BoxLayout(orientation='vertical', padding=20, spacing=20)
-
         # Set Background Color for main_layout
         with self.main_layout.canvas.before:
             Color(*hex_to_rgb('#f0f4f7'))  # Light grayish-blue background
@@ -61,8 +62,13 @@ class StrategiesScreen(Screen):
 
         self.strategy_spinner = Spinner(
             text=self.selected_strategy,  # Set default text
-            values=('Moving Average Crossover', 'RSI Strategy', 'Bollinger Bands Strategy'),
-            size_hint=(0.5, 1),  # Increased size_hint_x to 0.5
+            values=('Moving Average Crossover',
+                'RSI Strategy',
+                'Bollinger Bands Strategy',
+                'MACD Strategy',
+                'Mean Reversion Strategy',
+                'Breakout Strategy'),
+            size_hint=(1, 1),  # Increased size_hint_x to 0.5
             background_normal='',
             background_color=get_color_from_hex('#2980b9'),  # Blue
             color=get_color_from_hex('#ffffff'),
@@ -72,7 +78,7 @@ class StrategiesScreen(Screen):
         self.strategy_spinner.bind(text=self.on_strategy_select)
 
         # Optional: Wrap spinner in a container with fixed width
-        spinner_container = BoxLayout(size_hint=(None, 1), width=250)  # Adjust width as needed
+        spinner_container = BoxLayout(size_hint=(1, 1), width=250)  # Adjust width as needed
         spinner_container.add_widget(self.strategy_spinner)
 
         self.strategy_selection_layout.add_widget(Label(
@@ -174,13 +180,21 @@ class StrategiesScreen(Screen):
         self.display_strategy_params(self.selected_strategy)
 
         # Strategies List
-        self.strategies_list_layout = BoxLayout(orientation='vertical', size_hint=(1, 0.4), spacing=10)
+        self.strategies_list_layout = GridLayout(cols = 1, size_hint=(1, 0.4), spacing=10)
+        self.scroll_view = ScrollView(size_hint=(1, 1))
+        self.scroll_layout = GridLayout(cols=1, spacing=10, size_hint_y=None)
+
+        self.scroll_layout.bind(minimum_height=self.scroll_layout.setter('height'))
+        self.scroll_view.add_widget(self.scroll_layout)
+        self.strategies_list_layout.add_widget(self.scroll_view)
         self.main_layout.add_widget(self.strategies_list_layout)
+
+
 
         self.update_strategies()
 
         # Navigation Buttons
-        self.navigation_buttons_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.2), spacing=10)
+        self.navigation_buttons_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.1), spacing=10)
 
         back_button = Button(
             text="Back to Dashboard",
@@ -193,7 +207,7 @@ class StrategiesScreen(Screen):
         back_button.bind(on_release=self.go_to_dashboard)
 
         backtest_button = Button(
-            text="Go to Backtest",
+            text="Backtest Strategy Parameters",
             background_normal='',
             background_color=get_color_from_hex('#27ae60'),  # Green
             color=get_color_from_hex('#ffffff'),
@@ -203,10 +217,10 @@ class StrategiesScreen(Screen):
         backtest_button.bind(on_release=self.go_to_backtest)
 
         # Wrap buttons in containers with fixed width
-        back_button_container = BoxLayout(size_hint=(None, 1), width=200)  # Adjust width as needed
+        back_button_container = AnchorLayout( anchor_x = 'right', anchor_y = 'bottom')  # Adjust width as needed
         back_button_container.add_widget(back_button)
 
-        backtest_button_container = BoxLayout(size_hint=(None, 1), width=200)  # Adjust width as needed
+        backtest_button_container = AnchorLayout( anchor_x = 'left', anchor_y = 'bottom')  # Adjust width as needed
         backtest_button_container.add_widget(backtest_button)
 
         self.navigation_buttons_layout.add_widget(back_button_container)
@@ -330,6 +344,7 @@ class StrategiesScreen(Screen):
 
             # Store references to input fields
             self.strategy_params = {
+                'strategy_class_name': 'MovingAverageCrossoverStrategy',
                 'short_period': short_input,
                 'long_period': long_input,
             }
@@ -404,6 +419,7 @@ class StrategiesScreen(Screen):
 
             # Store references to input fields
             self.strategy_params = {
+                'strategy_class_name': 'RsiStrategy',
                 'rsi_period': rsi_period_input,
                 'rsi_upper': rsi_overbought_input,
                 'rsi_lower': rsi_oversold_input,
@@ -458,10 +474,138 @@ class StrategiesScreen(Screen):
 
             # Store references to input fields
             self.strategy_params = {
+                'strategy_class_name': 'BollingerBandsStrategy',
                 'period': period_input,
                 'devfactor': devfactor_input,
             }
+        elif strategy_name == 'MACD Strategy':
+            # fast_period, slow_period, signal_period
+            fast_input = TextInput(text='12', multiline=False,
+                input_filter='int',
+                size_hint=(0.3, 1),
+                background_normal='',
+                background_color=get_color_from_hex('#bdc3c7'),
+                foreground_color=get_color_from_hex('#2c3e50'),
+                font_size='16sp')
+            slow_input = TextInput(text='26', multiline=False,input_filter='int',
+                size_hint=(0.3, 1),
+                background_normal='',
+                background_color=get_color_from_hex('#bdc3c7'),
+                foreground_color=get_color_from_hex('#2c3e50'),
+                font_size='16sp')
+            signal_input = TextInput(text='9', multiline=False,input_filter='int',
+                size_hint=(0.3, 1),
+                background_normal='',
+                background_color=get_color_from_hex('#bdc3c7'),
+                foreground_color=get_color_from_hex('#2c3e50'),
+                font_size='16sp')
 
+            param_box1 = BoxLayout(orientation='horizontal', spacing=10)
+            param_box1.add_widget(Label(text='Fast Period:',
+                font_size='16sp',
+                color=get_color_from_hex('#34495e'),
+                halign='right',
+                valign='middle'))
+            param_box1.add_widget(fast_input)
+
+            param_box2 = BoxLayout(orientation='horizontal', spacing=10)
+            param_box2.add_widget(Label(text='Slow Period:', font_size='16sp',
+                color=get_color_from_hex('#34495e'),
+                halign='right',
+                valign='middle'))
+            param_box2.add_widget(slow_input)
+
+            param_box3 = BoxLayout(orientation='horizontal', spacing=10)
+            param_box3.add_widget(Label(text='Signal Period:', font_size='16sp',
+                color=get_color_from_hex('#34495e'),
+                halign='right',
+                valign='middle'))
+            param_box3.add_widget(signal_input)
+
+            self.params_layout.add_widget(param_box1)
+            self.params_layout.add_widget(param_box2)
+            self.params_layout.add_widget(param_box3)
+
+            self.strategy_params = {
+                'strategy_class_name': 'MACDStrategy',
+                'fast_period': fast_input,
+                'slow_period': slow_input,
+                'signal_period': signal_input
+            }
+
+        elif strategy_name == 'Mean Reversion Strategy':
+            lookback_input = TextInput(text='20', multiline=False, input_filter='int',
+                size_hint=(0.3, 1),
+                background_normal='',
+                background_color=get_color_from_hex('#bdc3c7'),
+                foreground_color=get_color_from_hex('#2c3e50'),
+                font_size='16sp')
+            threshold_input = TextInput(text='2.0', multiline=False, input_filter='float',
+                size_hint=(0.3, 1),
+                background_normal='',
+                background_color=get_color_from_hex('#bdc3c7'),
+                foreground_color=get_color_from_hex('#2c3e50'),
+                font_size='16sp')
+
+            param_box1 = BoxLayout(orientation='horizontal', spacing=10)
+            param_box1.add_widget(Label(text='Lookback Period:', font_size='16sp',
+                color=get_color_from_hex('#34495e'),
+                halign='right',
+                valign='middle'))
+            param_box1.add_widget(lookback_input)
+
+            param_box2 = BoxLayout(orientation='horizontal', spacing=10)
+            param_box2.add_widget(Label(text='Threshold:', font_size='16sp',
+                color=get_color_from_hex('#34495e'),
+                halign='right',
+                valign='middle'))
+            param_box2.add_widget(threshold_input)
+
+            self.params_layout.add_widget(param_box1)
+            self.params_layout.add_widget(param_box2)
+
+            self.strategy_params = {
+                'strategy_class_name': 'MeanReversionStrategy',
+                'lookback_period': lookback_input,
+                'threshold': threshold_input
+            }
+
+        elif strategy_name == 'Breakout Strategy':
+            lookback_input = TextInput(text='50', multiline=False, input_filter='int',
+                size_hint=(0.3, 1),
+                background_normal='',
+                background_color=get_color_from_hex('#bdc3c7'),
+                foreground_color=get_color_from_hex('#2c3e50'),
+                font_size='16sp')
+            factor_input = TextInput(text='1.5', multiline=False, input_filter='float',
+                size_hint=(0.3, 1),
+                background_normal='',
+                background_color=get_color_from_hex('#bdc3c7'),
+                foreground_color=get_color_from_hex('#2c3e50'),
+                font_size='16sp')
+
+            param_box1 = BoxLayout(orientation='horizontal', spacing=10)
+            param_box1.add_widget(Label(text='Lookback Period:', font_size='16sp',
+                color=get_color_from_hex('#34495e'),
+                halign='right',
+                valign='middle'))
+            param_box1.add_widget(lookback_input)
+
+            param_box2 = BoxLayout(orientation='horizontal', spacing=10)
+            param_box2.add_widget(Label(text='Breakout Factor:', font_size='16sp',
+                color=get_color_from_hex('#34495e'),
+                halign='right',
+                valign='middle'))
+            param_box2.add_widget(factor_input)
+
+            self.params_layout.add_widget(param_box1)
+            self.params_layout.add_widget(param_box2)
+
+            self.strategy_params = {
+                'strategy_class_name': 'BreakoutStrategy',
+                'lookback_period': lookback_input,
+                'breakout_factor': factor_input
+            }
         else:
             # Handle unknown strategy
             self.params_layout.add_widget(Label(
@@ -474,26 +618,59 @@ class StrategiesScreen(Screen):
         """
         Updates the list of strategies displayed.
         """
-        self.strategies_list_layout.clear_widgets()
+        self.scroll_layout.clear_widgets()
         try:
             strategies = self.db.get_all_strategies()
             if strategies:
                 for strategy in strategies:
-                    item = StrategyItem(strategy=strategy)
-                    self.strategies_list_layout.add_widget(item)
+                    item = StrategyItem(strategy=strategy, on_run_callback=self.on_run_strategy)
+                    self.scroll_layout.add_widget(item)
             else:
-                self.strategies_list_layout.add_widget(Label(
+                self.scroll_layout.add_widget(Label(
                     text="No strategies available.",
                     font_size='18sp',
                     color=get_color_from_hex('#7f8c8d')
                 ))
         except Exception as e:
             logger.error(f"Error fetching strategies: {e}")
-            self.strategies_list_layout.add_widget(Label(
+            self.scroll_layout.add_widget(Label(
                 text="Error fetching strategies.",
                 font_size='18sp',
                 color=get_color_from_hex('#e74c3c')
             ))
+
+    def on_run_strategy(self, strategy, loaded_params):
+        """
+        Callback for StrategyItem run button.
+        This method receives `strategy` and `loaded_params` from the saved strategy.
+
+        We must now request symbol, start_date, end_date from the user's current inputs in this screen.
+        interval and strategy_class_name are already in loaded_params.
+        """
+        symbol = self.symbol_input.text.strip()
+        start_date = self.start_date_input.text.strip()
+        end_date = self.end_date_input.text.strip()
+
+        if not symbol or not start_date or not end_date:
+            self.display_error_message("Please provide symbol, start date, and end date.")
+            return
+
+        # Insert symbol, start_date, end_date into loaded_params
+        loaded_params['symbol'] = symbol
+        loaded_params['start_date'] = start_date
+        loaded_params['end_date'] = end_date
+
+        # We have strategy['name'] as a descriptive name, but not the class from it.
+        # The class is in loaded_params['strategy_class_name']
+        # The BacktestScreen uses strategy_class_name from params, so we can just pass it as is.
+        # Just pick any displayed name for selected_strategy (the user sees descriptive name in strategy['name'])
+        self.selected_strategy = strategy['name']  # This is a descriptive name
+        self.strategy_params = loaded_params
+
+        # Navigate to BacktestScreen and run backtest
+        backtest_screen = self.manager.get_screen('backtest')
+        backtest_screen.set_strategy(self.selected_strategy, self.strategy_params)
+        self.manager.current = 'backtest'
 
     def go_to_dashboard(self, instance):
         self.manager.current = 'dashboard'
@@ -508,6 +685,7 @@ class StrategiesScreen(Screen):
         # Collect strategy-specific parameters
         if selected_strategy == 'RSI Strategy':
             try:
+                params['strategy_class_name'] = 'RsiStrategy'
                 params['rsi_period'] = int(self.strategy_params['rsi_period'].text)
                 params['rsi_upper'] = int(self.strategy_params['rsi_upper'].text)
                 params['rsi_lower'] = int(self.strategy_params['rsi_lower'].text)
@@ -518,6 +696,7 @@ class StrategiesScreen(Screen):
                 return
         elif selected_strategy == 'Bollinger Bands Strategy':
             try:
+                params['strategy_class_name'] = 'BollingerBandsStrategy'
                 params['period'] = int(self.strategy_params['period'].text)
                 params['devfactor'] = float(self.strategy_params['devfactor'].text)
             except ValueError:
@@ -527,6 +706,7 @@ class StrategiesScreen(Screen):
                 return
         elif selected_strategy == 'Moving Average Crossover':
             try:
+                params['strategy_class_name'] = 'MovingAverageCrossoverStrategy'
                 params['short_period'] = int(self.strategy_params['short_period'].text)
                 params['long_period'] = int(self.strategy_params['long_period'].text)
             except ValueError:
@@ -534,6 +714,33 @@ class StrategiesScreen(Screen):
                 logger.error("Invalid Moving Average Crossover parameters.")
                 self.display_error_message("Invalid Moving Average Crossover parameters. Please enter valid integers.")
                 return
+        elif selected_strategy == 'MACD Strategy':
+            try:
+                params['strategy_class_name'] = 'MACDStrategy'
+                params['fast_period'] = int(self.strategy_params['fast_period'].text)
+                params['slow_period'] = int(self.strategy_params['slow_period'].text)
+                params['signal_period'] = int(self.strategy_params['signal_period'].text)
+            except ValueError:
+                # Handle invalid input
+                logger.error("Invalid MACD parameters.")
+                self.display_error_message("Invalid MACD parameters. Please enter valid integers.")
+                return
+        elif selected_strategy == 'Mean Reversion Strategy':
+            try:
+                params['strategy_class_name'] = 'MeanReversionStrategy'
+                params['lookback_period'] = int(self.strategy_params['lookback_period'].text)
+                params['threshold'] = float(self.strategy_params['threshold'].text)
+            except ValueError:
+                logger.error("Invalid Mean Reversion parameters.")
+                self.display_error_message("Invalid Mean Reversion parameters. Please enter valid numbers.")
+        elif selected_strategy == 'Breakout Strategy':
+            try:
+                params['strategy_class_name'] = 'BreakoutStrategy'
+                params['lookback_period'] = int(self.strategy_params['lookback_period'].text)
+                params['breakout_factor'] = float(self.strategy_params['breakout_factor'].text)
+            except ValueError:
+                logger.error("Invalid Breakout parameters.")
+                self.display_error_message("Invalid Breakout parameters. Please enter valid numbers.")
         else:
             # Handle unknown strategy
             logger.error("Unknown strategy selected.")
@@ -605,3 +812,5 @@ class StrategiesScreen(Screen):
     @mainthread
     def remove_error_message(self, label):
         self.main_layout.remove_widget(label)
+    def on_enter(self):
+        self.update_strategies()

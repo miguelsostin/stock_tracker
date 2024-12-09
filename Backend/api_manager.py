@@ -2,12 +2,16 @@ from dotenv import load_dotenv
 import os
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, GetAssetsRequest,ClosePositionRequest, GetPortfolioHistoryRequest, GetOrdersRequest
+from alpaca.data.requests import StockLatestQuoteRequest, StockQuotesRequest, StockBarsRequest
+from alpaca.data import StockHistoricalDataClient
 from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.data.timeframe import TimeFrame
 from Backend.database import DatabaseManager
 from alpaca.common.enums import BaseURL
 from typing import Optional, List, Union
 from alpaca.trading.models import PortfolioHistory
 from alpaca.common import RawData
+import datetime
 
 
 class TradingClientPortfolioAble(TradingClient):
@@ -64,6 +68,7 @@ class APIManager:
         ### Initialize Clients
         self.clientP = TradingClient(self.paper_key, self.secret_paper_key, paper=True)
         self.clientT = TradingClient(self.api_key, self.secret_key, paper=False)
+        self.DataClient = StockHistoricalDataClient(api_key=self.paper_key,secret_key=self.secret_paper_key)
 
         self.account = None
 
@@ -176,9 +181,25 @@ class APIManager:
         except Exception as e:
             print(f"Error fetching trades: {e}")
 
+    def get_quote_and_change(self, symbol):
+        params = StockBarsRequest(symbol_or_symbols=symbol, start=datetime.datetime.now() - datetime.timedelta(days=7), end=datetime.datetime.now(), timeframe=TimeFrame.Day)
+        bars = self.DataClient.get_stock_bars(params)
+        params2 = StockLatestQuoteRequest(symbol_or_symbols=symbol)
+        quote = self.DataClient.get_stock_latest_quote(params2)
+
+        prev_close = bars[symbol][-2].close
+        current_price = quote[symbol].bid_price
+        change = round(current_price - prev_close, 2)
+        percent_change = round((change / prev_close) * 100, 2)
+
+        return current_price, change, percent_change
+
 api = APIManager()
-hist = api.get_portfolio_history()
-print(hist)
+quote = api.get_quote_and_change('AAPL')
+
+print(quote)
+
+
 
 
 
