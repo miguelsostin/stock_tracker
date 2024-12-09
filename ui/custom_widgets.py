@@ -208,8 +208,7 @@ class ETFAnalyticsWidget(BoxLayout):
         self.etf_name = etf_name
         self.orientation = "vertical"
         self.padding = 10
-        self.size_hint = (None, None)
-        self.size = (305, 150)
+        self.size_hint = (1, 0.2)
 
         # Background styling
         with self.canvas.before:
